@@ -28,18 +28,11 @@ export function AudioPlayer({ file, segments, currentSegmentId, onSegmentChange 
 
     const onTimeUpdate = () => {
       setCurrentTime(audio.currentTime)
-
-      // Find current segment
-      const seg = segments.find(
-        (s) => audio.currentTime >= s.start && audio.currentTime <= s.end,
-      )
-      if (seg && seg.id !== currentSegmentId) {
-        onSegmentChange(seg.id)
-      }
+      const seg = segments.find((s) => audio.currentTime >= s.start && audio.currentTime <= s.end)
+      if (seg && seg.id !== currentSegmentId) onSegmentChange(seg.id)
     }
-
     const onDurationChange = () => setDuration(audio.duration)
-    const onPlay = () => setPlaying(true)
+    const onPlay  = () => setPlaying(true)
     const onPause = () => setPlaying(false)
     const onEnded = () => { setPlaying(false); setCurrentTime(0) }
 
@@ -48,7 +41,6 @@ export function AudioPlayer({ file, segments, currentSegmentId, onSegmentChange 
     audio.addEventListener('play', onPlay)
     audio.addEventListener('pause', onPause)
     audio.addEventListener('ended', onEnded)
-
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate)
       audio.removeEventListener('durationchange', onDurationChange)
@@ -84,56 +76,75 @@ export function AudioPlayer({ file, segments, currentSegmentId, onSegmentChange 
     audio.currentTime = Math.min(duration, audio.currentTime + 10)
   }
 
+  const pct = duration ? (currentTime / duration) * 100 : 0
+
   return (
-    <div className="bg-zinc-900 border-t border-zinc-800 px-6 py-3">
+    <div
+      className="shrink-0 px-4 py-3 border-t"
+      style={{
+        background: 'rgba(9, 9, 11, 0.92)',
+        backdropFilter: 'blur(24px) saturate(1.2)',
+        borderColor: 'rgba(255,255,255,0.06)',
+      }}
+    >
       <audio ref={audioRef} src={srcUrl} preload="metadata" />
 
-      <div className="flex items-center gap-4">
-        {/* Controls */}
+      <div className="flex items-center gap-3 max-w-4xl mx-auto">
+        {/* Skip back */}
         <button
           onClick={skipBack}
-          className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg transition-colors active:scale-[0.95]"
+          style={{ color: 'var(--foreground-tertiary)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--foreground)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--foreground-tertiary)')}
           title="Back 10s"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12.066 11.2a1 1 0 0 0 0 1.6l5.334 4A1 1 0 0 0 19 16V8a1 1 0 0 0-1.6-.8l-5.334 4Z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.066 11.2a1 1 0 0 0 0 1.6l5.334 4A1 1 0 0 0 11 16V8a1 1 0 0 0-1.6-.8l-5.334 4Z" />
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6a1 1 0 0 1 1 1v4.615L17.362 6.2A1 1 0 0 1 19 7v10a1 1 0 0 1-1.638.8L7 12.385V17a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z"/>
           </svg>
         </button>
 
+        {/* Play / Pause */}
         <button
           onClick={togglePlay}
-          className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-500 flex items-center justify-center text-white transition-colors shrink-0"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-[#09090b] font-bold transition-all active:scale-[0.94]"
+          style={{
+            background: 'linear-gradient(180deg, #34d9c4 0%, #1aab98 100%)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset, 0 4px 16px rgba(45,212,191,0.25)',
+          }}
         >
           {playing ? (
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M5 3l14 9-14 9V3z" />
             </svg>
           )}
         </button>
 
+        {/* Skip forward */}
         <button
           onClick={skipForward}
-          className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg transition-colors active:scale-[0.95]"
+          style={{ color: 'var(--foreground-tertiary)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--foreground)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--foreground-tertiary)')}
           title="Forward 10s"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.933 12.8a1 1 0 0 0 0-1.6L6.6 7.2A1 1 0 0 0 5 8v8a1 1 0 0 0 1.6.8l5.333-4Z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.933 12.8a1 1 0 0 0 0-1.6l-5.333-4A1 1 0 0 0 13 8v8a1 1 0 0 0 1.6.8l5.333-4Z" />
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18 6a1 1 0 0 1 1 1v10a1 1 0 0 1-1.638.8L7 12.385V17a1 1 0 1 1-2 0V7a1 1 0 0 1 1.638-.8L17 11.615V7a1 1 0 0 1 1-1Z"/>
           </svg>
         </button>
 
         {/* Time */}
-        <span className="text-zinc-400 text-xs font-mono shrink-0 w-24 text-right">
-          {formatDuration(currentTime)} / {formatDuration(duration)}
+        <span className="text-[11px] font-mono shrink-0 tabular-nums" style={{ color: 'var(--foreground-tertiary)' }}>
+          {formatDuration(currentTime)}
         </span>
 
         {/* Seek bar */}
-        <div className="flex-1 relative h-1.5 group">
+        <div className="seek-wrapper flex-1 relative h-1 group cursor-pointer" style={{ marginTop: 0 }}>
           <input
             type="range"
             min={0}
@@ -141,17 +152,26 @@ export function AudioPlayer({ file, segments, currentSegmentId, onSegmentChange 
             step={0.1}
             value={currentTime}
             onChange={seek}
-            className="absolute inset-0 w-full opacity-0 cursor-pointer z-10 h-full"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
-          <div className="w-full h-full bg-zinc-700 rounded-full overflow-hidden">
+          <div className="absolute inset-0 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <div
-              className="h-full bg-violet-500 rounded-full transition-[width] duration-100"
-              style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+              className="h-full rounded-full transition-[width] duration-100"
+              style={{ width: `${pct}%`, background: '#2dd4bf' }}
             />
           </div>
+          {/* Playhead dot — appears on hover */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            style={{ left: `${pct}%`, background: '#2dd4bf', boxShadow: '0 0 8px rgba(45,212,191,0.5)' }}
+          />
         </div>
-      </div>
 
+        {/* Total */}
+        <span className="text-[11px] font-mono shrink-0 tabular-nums" style={{ color: 'var(--foreground-tertiary)' }}>
+          {formatDuration(duration)}
+        </span>
+      </div>
     </div>
   )
 }

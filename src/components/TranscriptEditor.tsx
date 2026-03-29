@@ -39,7 +39,7 @@ export function TranscriptEditor({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Keyboard shortcuts: 1-9 assign speaker
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -51,22 +51,17 @@ export function TranscriptEditor({
         if (speaker) onBulkAssign(speaker.id)
         return
       }
-
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
         e.preventDefault()
         onSelectAll()
       }
-
-      if (e.key === 'Escape') {
-        onClearSelection()
-      }
+      if (e.key === 'Escape') onClearSelection()
     }
-
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [speakers, onBulkAssign, onSelectAll, onClearSelection])
 
-  // Auto-scroll active segment into view
+  // Auto-scroll active segment
   useEffect(() => {
     if (!activeSegmentId) return
     const el = document.getElementById(`seg-${activeSegmentId}`)
@@ -74,8 +69,7 @@ export function TranscriptEditor({
   }, [activeSegmentId])
 
   const speakerForSegment = useCallback(
-    (seg: Segment): Speaker =>
-      speakers.find((s) => s.id === seg.speakerId) ?? speakers[0],
+    (seg: Segment): Speaker => speakers.find((s) => s.id === seg.speakerId) ?? speakers[0],
     [speakers],
   )
 
@@ -85,19 +79,22 @@ export function TranscriptEditor({
   const showBulkBar = selectedIds.size > 1
 
   return (
-    <div ref={containerRef} className="flex flex-col flex-1 min-h-0">
-      {/* Assignment toolbar — always visible when there are segments */}
+    <div ref={containerRef} className="flex flex-col flex-1 min-h-0 min-w-0">
+      {/* Assignment toolbar */}
       {segments.length > 0 && (
-        <div className="shrink-0 px-4 py-2 bg-zinc-900/80 border-b border-zinc-800 flex items-center gap-3 flex-wrap">
+        <div
+          className="shrink-0 px-4 py-2 flex items-center gap-3 flex-wrap"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.2)' }}
+        >
           {labeledCount === 0 ? (
-            <span className="text-xs text-zinc-500">
-              Click a speaker badge on any line to start labeling.
+            <span className="text-[11px]" style={{ color: 'var(--foreground-tertiary)' }}>
+              Click a speaker badge to start labeling.
             </span>
           ) : (
-            <span className="text-xs text-zinc-400">
-              <span className="text-white font-medium">{labeledCount}</span> manually labeled
+            <span className="text-[11px]" style={{ color: 'var(--foreground-tertiary)' }}>
+              <span className="font-semibold text-white">{labeledCount}</span> labeled
               {unlabeledCount > 0 && (
-                <>, <span className="text-zinc-500">{unlabeledCount} unset</span></>
+                <>, <span>{unlabeledCount} unset</span></>
               )}
             </span>
           )}
@@ -106,19 +103,27 @@ export function TranscriptEditor({
             {canAutoAssign && (
               <button
                 onClick={onAutoAssign}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-medium transition-colors"
-                title={`Use your ${labeledCount} labeled lines to assign the remaining ${unlabeledCount}`}
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  background: 'rgba(45,212,191,0.08)',
+                  border: '1px solid rgba(45,212,191,0.2)',
+                  color: '#2dd4bf',
+                }}
+                title={`Use ${labeledCount} labeled lines to assign ${unlabeledCount} remaining`}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                 </svg>
-                Auto-assign remaining
+                Auto-assign
               </button>
             )}
             {labeledCount > 0 && (
               <button
                 onClick={onClearAssignments}
-                className="px-2.5 py-1 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 text-xs transition-colors"
+                className="px-2.5 py-1 rounded text-[11px] font-medium transition-all"
+                style={{ color: 'var(--foreground-tertiary)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--foreground-secondary)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--foreground-tertiary)'; e.currentTarget.style.background = 'transparent' }}
                 title="Reset all speaker assignments"
               >
                 Clear all
@@ -128,31 +133,46 @@ export function TranscriptEditor({
         </div>
       )}
 
-      {/* Bulk assign bar — shown when multiple rows are selected */}
+      {/* Bulk assign bar */}
       {showBulkBar && (
-        <div className="shrink-0 px-4 py-2 bg-zinc-800/80 border-b border-zinc-700 flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-zinc-300 font-medium">
+        <div
+          className="shrink-0 px-4 py-2 flex items-center gap-3 flex-wrap"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(45,212,191,0.03)' }}
+        >
+          <span className="text-[12px] font-semibold text-white">
             {selectedIds.size} selected
           </span>
-          <span className="text-zinc-600 text-sm">— Assign to:</span>
-          <div className="flex gap-2 flex-wrap">
+          <span className="text-[11px]" style={{ color: 'var(--foreground-tertiary)' }}>Assign to:</span>
+          <div className="flex gap-1.5 flex-wrap">
             {speakers.map((s, i) => (
               <button
                 key={s.id}
                 onClick={() => onBulkAssign(s.id)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80"
-                style={{ backgroundColor: `${s.color}22`, color: s.color, border: `1px solid ${s.color}44` }}
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  background: `${s.color}15`,
+                  border: `1px solid ${s.color}30`,
+                  color: s.color,
+                }}
                 title={`Press ${i + 1}`}
               >
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                 {s.name}
-                <kbd className="ml-1 px-1 py-0.5 rounded bg-black/20 text-[10px] font-mono opacity-70">{i + 1}</kbd>
+                <kbd
+                  className="ml-0.5 px-1 py-0.5 rounded font-mono text-[9px] opacity-60"
+                  style={{ background: 'rgba(0,0,0,0.3)' }}
+                >
+                  {i + 1}
+                </kbd>
               </button>
             ))}
           </div>
           <button
             onClick={onClearSelection}
-            className="ml-auto text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+            className="ml-auto text-[11px] font-medium transition-all"
+            style={{ color: 'var(--foreground-tertiary)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--foreground-secondary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--foreground-tertiary)')}
           >
             Deselect
           </button>
@@ -160,10 +180,10 @@ export function TranscriptEditor({
       )}
 
       {/* Segment list */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1">
+      <div className="flex-1 overflow-y-auto">
         {segments.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
-            No segments yet
+          <div className="flex items-center justify-center h-full" style={{ color: 'var(--foreground-tertiary)' }}>
+            <span className="text-[13px]">No segments yet</span>
           </div>
         ) : (
           segments.map((seg) => (

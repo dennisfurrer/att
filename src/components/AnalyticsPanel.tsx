@@ -8,8 +8,6 @@ type Props = {
 
 type WordTab = 'words' | 'time'
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 function countWords(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
@@ -30,15 +28,12 @@ function fmtPct(n: number) {
   return `${Math.round(n * 100)}%`
 }
 
-// ── Analytics Panel ────────────────────────────────────────────────────────
-
 export function AnalyticsPanel({ segments, speakers }: Props) {
   const [wordTab, setWordTab] = useState<WordTab>('words')
 
   const stats = useMemo(() => {
     if (!segments.length) return null
 
-    // Per-speaker aggregates
     const bySpeaker: Record<string, {
       speaker: Speaker
       segments: Segment[]
@@ -47,7 +42,6 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
       turns: number
     }> = {}
 
-    // Include "unassigned" bucket for segments not matching any speaker
     const speakerMap = new Map(speakers.map((s) => [s.id, s]))
 
     for (const seg of segments) {
@@ -55,7 +49,7 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
       const key = seg.speakerId
       if (!bySpeaker[key]) {
         bySpeaker[key] = {
-          speaker: sp ?? { id: key, name: 'Unknown', color: '#71717a' },
+          speaker: sp ?? { id: key, name: 'Unknown', color: '#52525b' },
           segments: [],
           totalTime: 0,
           totalWords: 0,
@@ -74,49 +68,36 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
     const totalWords = entries.reduce((s, e) => s + e.totalWords, 0)
     const totalSegments = segments.length
 
-    // Sort by total words desc
     entries.sort((a, b) => b.totalWords - a.totalWords)
 
-    // Global stats
     const allText = segments.map((s) => s.text).join(' ')
     const avgSegDuration = totalTime / totalSegments
     const longestSeg = segments.reduce((best, s) => (s.end - s.start > best.end - best.start ? s : best))
     const shortestSeg = segments.reduce((best, s) => (s.end - s.start < best.end - best.start ? s : best))
 
-    // Talk ratio (who talks the most)
-    const dominant = entries[0]
-    const leastDominant = entries[entries.length - 1]
-
-    // Silence gaps
     const silenceGaps = segments.filter((s) => s.silenceGapBefore)
     const silenceCount = silenceGaps.length
 
-    // Speaker changes (adjacent segments with different speakers)
     let speakerChanges = 0
     for (let i = 1; i < segments.length; i++) {
       if (segments[i].speakerId !== segments[i - 1].speakerId) speakerChanges++
     }
 
-    // Avg words per turn per speaker
     for (const e of entries) {
       const texts = e.segments.map((s) => s.text).join(' ')
-      e.totalWords = countWords(texts) // recount cleanly
+      e.totalWords = countWords(texts)
     }
 
-    // Questions (rough: segments ending in ?)
     const questionSegments = segments.filter((s) => s.text.trim().endsWith('?'))
 
-    // Pace: words per minute per speaker
     const paceEntries = entries.map((e) => ({
       name: e.speaker.name,
       color: e.speaker.color,
       wpm: e.totalTime > 0 ? (e.totalWords / e.totalTime) * 60 : 0,
     }))
 
-    // Avg turn length in seconds
     const avgTurnLength = totalTime / entries.reduce((s, e) => s + e.turns, 0)
 
-    // Monologue streaks: longest run of segments by one speaker
     let maxStreak = 0
     let maxStreakSpeaker = ''
     let curStreak = 0
@@ -135,22 +116,17 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
     }
     const streakSpeakerName = speakerMap.get(maxStreakSpeaker)?.name ?? 'Unknown'
 
-    // Vocabulary richness: unique words / total words
     const allWords = allText.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean)
     const uniqueWords = new Set(allWords).size
     const vocabRichness = allWords.length > 0 ? uniqueWords / allWords.length : 0
 
-    // Most common words (exclude stop words)
     const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'are', 'was', 'were', 'i', 'you', 'we', 'they', 'it', 'that', 'this', 'be', 'have', 'has', 'had', 'do', 'did', 'not', 'so', 'if', 'as', 'by', 'from', 'up', 'about', 'into', 'than', 'then', 'its', 'my', 'our', 'your', 'their', 'just', 'like', 'also', 'can', 'will', 'would', 'could', 'should', 'going', 'know', 'think', 'yeah', 'okay', 'right', 'um', 'uh', 'well'])
     const wordFreq: Record<string, number> = {}
     for (const w of allWords) {
       if (!STOP.has(w) && w.length > 2) wordFreq[w] = (wordFreq[w] ?? 0) + 1
     }
-    const topWords = Object.entries(wordFreq)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
+    const topWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 8)
 
-    // Interruption-like moments: very short segments (<3s) after a speaker change
     const interruptions = segments.filter((s, i) => {
       if (i === 0) return false
       return (s.end - s.start) < 3 && segments[i - 1].speakerId !== s.speakerId
@@ -161,8 +137,6 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
       totalTime,
       totalWords,
       totalSegments,
-      dominant,
-      leastDominant,
       silenceCount,
       speakerChanges,
       questionSegments: questionSegments.length,
@@ -183,7 +157,7 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
 
   if (!stats) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm">
+      <div className="flex-1 flex items-center justify-center text-[13px]" style={{ color: 'var(--foreground-tertiary)' }}>
         No transcript to analyze yet
       </div>
     )
@@ -192,18 +166,28 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
   const { entries, totalTime, totalWords, totalSegments } = stats
 
   return (
-    <div className="flex-1 overflow-y-auto bg-zinc-950 p-6 space-y-6">
+    <div className="flex-1 overflow-y-auto p-5 space-y-6">
 
-      {/* ── Conversation dominance ─────────────────────────────────────── */}
+      {/* ── Conversation dominance ─────────────────────────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-zinc-200">Conversation Dominance</h3>
-          <div className="flex rounded-lg overflow-hidden border border-zinc-700 text-xs">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>
+            Conversation Dominance
+          </p>
+          {/* Tab toggle */}
+          <div
+            className="flex rounded overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
             {(['words', 'time'] as WordTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setWordTab(tab)}
-                className={`px-3 py-1 transition-colors capitalize ${wordTab === tab ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider transition-all"
+                style={{
+                  background: wordTab === tab ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  color: wordTab === tab ? 'var(--foreground)' : 'var(--foreground-tertiary)',
+                }}
               >
                 {tab}
               </button>
@@ -211,7 +195,7 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
           </div>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {entries.map((e) => {
             const value = wordTab === 'words' ? e.totalWords : e.totalTime
             const total = wordTab === 'words' ? totalWords : totalTime
@@ -222,20 +206,20 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
 
             return (
               <div key={e.speaker.id}>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: e.speaker.color }} />
-                    <span className="text-sm text-zinc-300">{e.speaker.name}</span>
-                    <span className="text-xs text-zinc-500">{e.turns} turns</span>
+                    <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: e.speaker.color }} />
+                    <span className="text-[13px] font-medium" style={{ color: 'var(--foreground)' }}>{e.speaker.name}</span>
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--foreground-tertiary)' }}>{e.turns} turns</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-zinc-400">{display}</span>
-                    <span className="text-zinc-200 font-semibold w-10 text-right">{fmtPct(pct)}</span>
+                  <div className="flex items-center gap-3 text-[11px] font-mono">
+                    <span style={{ color: 'var(--foreground-secondary)' }}>{display}</span>
+                    <span className="font-bold w-10 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fmtPct(pct)}</span>
                   </div>
                 </div>
-                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="h-1.5 rounded-sm overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="h-full rounded-sm transition-all duration-500"
                     style={{ width: `${pct * 100}%`, backgroundColor: e.speaker.color }}
                   />
                 </div>
@@ -245,78 +229,35 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
         </div>
       </section>
 
-      <div className="border-t border-zinc-800" />
+      <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)' }} />
 
       {/* ── Metrics grid ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
-
-        <MetricCard
-          label="Total duration"
-          value={fmtTime(stats.totalTime)}
-          sub="of transcribed audio"
-        />
-        <MetricCard
-          label="Total words"
-          value={stats.totalWords.toLocaleString()}
-          sub={`~${Math.round(stats.totalWords / Math.max(stats.totalTime / 60, 1))} wpm overall`}
-        />
-        <MetricCard
-          label="Segments"
-          value={totalSegments.toString()}
-          sub={`avg ${fmtTime(stats.avgSegDuration)} each`}
-        />
-        <MetricCard
-          label="Speaker turns"
-          value={stats.speakerChanges.toString()}
-          sub="speaker change events"
-        />
-        <MetricCard
-          label="Silence gaps"
-          value={stats.silenceCount.toString()}
-          sub=">1.5s pauses detected"
-        />
-        <MetricCard
-          label="Questions"
-          value={stats.questionSegments.toString()}
-          sub="segments ending in ?"
-        />
-        <MetricCard
-          label="Longest monologue"
-          value={`${stats.maxStreak} seg`}
-          sub={`by ${stats.streakSpeakerName}`}
-        />
-        <MetricCard
-          label="Short interjections"
-          value={stats.interruptions.toString()}
-          sub="<3s after speaker change"
-        />
-        <MetricCard
-          label="Unique words"
-          value={stats.uniqueWords.toLocaleString()}
-          sub={`vocab richness ${fmtPct(stats.vocabRichness)}`}
-        />
-        <MetricCard
-          label="Avg words/sentence"
-          value={stats.avgWordsPerSentence.toFixed(1)}
-          sub="across full transcript"
-        />
-        <MetricCard
-          label="Avg turn length"
-          value={fmtTime(stats.avgTurnLength)}
-          sub="seconds per turn"
-        />
-        <MetricCard
-          label="Longest segment"
-          value={fmtTime(stats.longestSeg.end - stats.longestSeg.start)}
-          sub={`at ${fmtTime(stats.longestSeg.start)}`}
-        />
-
-      </div>
-
-      {/* ── Speaking pace ──────────────────────────────────────────────── */}
       <section>
-        <h3 className="text-sm font-semibold text-zinc-200 mb-3">Speaking Pace (wpm)</h3>
-        <div className="space-y-2.5">
+        <p className="text-[11px] uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--foreground-tertiary)' }}>
+          Metrics
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <MetricCard label="Total duration" value={fmtTime(stats.totalTime)} sub="transcribed audio" />
+          <MetricCard label="Total words" value={stats.totalWords.toLocaleString()} sub={`~${Math.round(stats.totalWords / Math.max(stats.totalTime / 60, 1))} wpm`} />
+          <MetricCard label="Segments" value={totalSegments.toString()} sub={`avg ${fmtTime(stats.avgSegDuration)}`} />
+          <MetricCard label="Speaker turns" value={stats.speakerChanges.toString()} sub="change events" />
+          <MetricCard label="Silence gaps" value={stats.silenceCount.toString()} sub=">1.5s pauses" />
+          <MetricCard label="Questions" value={stats.questionSegments.toString()} sub="segments ending ?" />
+          <MetricCard label="Monologue" value={`${stats.maxStreak} seg`} sub={`by ${stats.streakSpeakerName}`} />
+          <MetricCard label="Interjections" value={stats.interruptions.toString()} sub="<3s after change" />
+          <MetricCard label="Unique words" value={stats.uniqueWords.toLocaleString()} sub={`richness ${fmtPct(stats.vocabRichness)}`} />
+          <MetricCard label="Words/sentence" value={stats.avgWordsPerSentence.toFixed(1)} sub="full transcript" />
+          <MetricCard label="Avg turn" value={fmtTime(stats.avgTurnLength)} sub="per turn" />
+          <MetricCard label="Longest segment" value={fmtTime(stats.longestSeg.end - stats.longestSeg.start)} sub={`at ${fmtTime(stats.longestSeg.start)}`} />
+        </div>
+      </section>
+
+      {/* ── Speaking pace ──────────────────────────────────────────────────── */}
+      <section>
+        <p className="text-[11px] uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--foreground-tertiary)' }}>
+          Speaking Pace
+        </p>
+        <div className="space-y-3">
           {stats.paceEntries
             .filter((e) => e.wpm > 0)
             .sort((a, b) => b.wpm - a.wpm)
@@ -324,16 +265,18 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
               const maxWpm = Math.max(...stats.paceEntries.map((x) => x.wpm))
               return (
                 <div key={e.name}>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
-                      <span className="text-sm text-zinc-300">{e.name}</span>
+                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: e.color }} />
+                      <span className="text-[13px] font-medium" style={{ color: 'var(--foreground)' }}>{e.name}</span>
                     </div>
-                    <span className="text-xs text-zinc-300 font-semibold">{Math.round(e.wpm)} wpm</span>
+                    <span className="font-mono text-[11px] font-bold tabular-nums" style={{ color: 'var(--foreground)' }}>
+                      {Math.round(e.wpm)} wpm
+                    </span>
                   </div>
-                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-1.5 rounded-sm overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-sm transition-all duration-500"
                       style={{ width: `${(e.wpm / maxWpm) * 100}%`, backgroundColor: e.color }}
                     />
                   </div>
@@ -341,31 +284,37 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
               )
             })}
         </div>
-        <p className="text-xs text-zinc-600 mt-2">Typical conversational speech: 120–180 wpm</p>
+        <p className="text-[10px] mt-2" style={{ color: 'var(--foreground-tertiary)' }}>Typical conversational speech: 120–180 wpm</p>
       </section>
 
-      {/* ── Top keywords ──────────────────────────────────────────────── */}
+      {/* ── Top keywords ──────────────────────────────────────────────────── */}
       {stats.topWords.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-zinc-200 mb-3">Top Keywords</h3>
+          <p className="text-[11px] uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--foreground-tertiary)' }}>
+            Top Keywords
+          </p>
           <div className="flex flex-wrap gap-2">
             {stats.topWords.map(([word, count]) => (
               <span
                 key={word}
-                className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium"
+                style={{
+                  background: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--foreground-secondary)',
+                }}
               >
                 {word}
-                <span className="ml-1.5 text-zinc-500">{count}×</span>
+                <span className="font-mono text-[10px]" style={{ color: 'var(--foreground-tertiary)' }}>{count}×</span>
               </span>
             ))}
           </div>
         </section>
       )}
 
-      {/* ── Engagement balance ─────────────────────────────────────────── */}
+      {/* ── Engagement balance ─────────────────────────────────────────────── */}
       {entries.length >= 2 && (
         <section>
-          <h3 className="text-sm font-semibold text-zinc-200 mb-1">Engagement Balance</h3>
           {(() => {
             const dominant = entries[0]
             const least = entries[entries.length - 1]
@@ -373,15 +322,30 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
             const leastPct = totalWords > 0 ? least.totalWords / totalWords : 0
             const isBalanced = dominantPct < 0.6
             return (
-              <div className={`rounded-xl border p-3 text-sm ${isBalanced ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-semibold ${isBalanced ? 'text-emerald-400' : 'text-amber-400'}`}>
+              <div
+                className="rounded p-4"
+                style={{
+                  background: isBalanced ? 'rgba(45,212,191,0.04)' : 'rgba(245,158,11,0.04)',
+                  border: isBalanced ? '1px solid rgba(45,212,191,0.15)' : '1px solid rgba(245,158,11,0.15)',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: isBalanced ? '#2dd4bf' : '#f59e0b' }}
+                  />
+                  <span
+                    className="text-[10px] uppercase tracking-wider font-bold"
+                    style={{ color: isBalanced ? '#2dd4bf' : '#f59e0b' }}
+                  >
                     {isBalanced ? 'Balanced' : 'Imbalanced'}
                   </span>
                 </div>
-                <p className="text-zinc-400 text-xs">
-                  {dominant.speaker.name} dominates at <strong className="text-zinc-200">{fmtPct(dominantPct)}</strong> of words.
-                  {' '}{least.speaker.name} contributes <strong className="text-zinc-200">{fmtPct(leastPct)}</strong>.
+                <p className="text-[12px] leading-relaxed" style={{ color: 'var(--foreground-secondary)' }}>
+                  {dominant.speaker.name} dominates at{' '}
+                  <strong className="text-white">{fmtPct(dominantPct)}</strong> of words.{' '}
+                  {least.speaker.name} contributes{' '}
+                  <strong className="text-white">{fmtPct(leastPct)}</strong>.
                   {dominantPct > 0.7 && ' Consider if all voices are being heard.'}
                 </p>
               </div>
@@ -396,10 +360,17 @@ export function AnalyticsPanel({ segments, speakers }: Props) {
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3">
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className="text-xl font-semibold text-white tracking-tight">{value}</p>
-      <p className="text-xs text-zinc-600 mt-0.5">{sub}</p>
+    <div
+      className="px-3 py-3 rounded"
+      style={{
+        background: 'rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4)',
+      }}
+    >
+      <p className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: 'var(--foreground-tertiary)' }}>{label}</p>
+      <p className="font-mono text-[18px] font-semibold tabular-nums text-white leading-none">{value}</p>
+      <p className="text-[10px] mt-1" style={{ color: 'var(--foreground-tertiary)' }}>{sub}</p>
     </div>
   )
 }
