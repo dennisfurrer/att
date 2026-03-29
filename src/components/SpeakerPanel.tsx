@@ -69,7 +69,7 @@ export function SpeakerPanel({ speakers, onAdd, onRename, onColorChange, onRemov
 
       {/* Speaker list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {speakers.map((speaker, i) => (
+        {speakers.map((speaker) => (
           <div
             key={speaker.id}
             className="rounded-xl p-3"

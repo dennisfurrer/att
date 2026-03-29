@@ -17,7 +17,7 @@ export function UploadZone({ onFile }: Props) {
     (file: File) => {
       const ok = ACCEPTED.some((t) => file.type === t) || ACCEPTED_EXT.split(',').some((ext) => file.name.endsWith(ext.trim()))
       if (!ok) {
-        setError(`Unsupported format: ${file.type || file.name}. Use mp3, wav, m4a, webm, or ogg.`)
+        setError(`Unsupported format: ${file.type || file.name}`)
         return
       }
       setError(null)
@@ -43,25 +43,69 @@ export function UploadZone({ onFile }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen px-4 py-12">
-      {/* Brand */}
-      <div className="mb-10 text-center stagger">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.15)' }}>
-            <svg className="w-5 h-5" fill="none" stroke="#2dd4bf" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" x2="12" y1="19" y2="22" strokeLinecap="round" />
+    <div
+      className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16 overflow-hidden"
+      style={{ background: 'var(--background)' }}
+    >
+      {/* Deep ambient glow behind content */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: '20%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '600px',
+          height: '400px',
+          background: 'radial-gradient(ellipse at center, rgba(45,212,191,0.04) 0%, transparent 70%)',
+          filter: 'blur(40px)',
+        }}
+      />
+
+      {/* Brand mark */}
+      <div className="relative z-10 mb-12 text-center">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          {/* Icon — recessed inset well */}
+          <div
+            className="w-11 h-11 flex items-center justify-center"
+            style={{
+              background: 'rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderTopColor: 'rgba(255,255,255,0.08)',
+              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.03)',
+            }}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24">
+              <path
+                d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+                stroke="#2dd4bf"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"
+                stroke="#2dd4bf"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-white">ATT</h1>
+          <div>
+            <h1
+              className="font-display text-[22px] font-semibold tracking-tight leading-none"
+              style={{ color: 'var(--foreground)' }}
+            >
+              ATT
+            </h1>
+            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold mt-0.5" style={{ color: 'var(--foreground-tertiary)' }}>
+              Audio Transcription Tool
+            </p>
+          </div>
         </div>
-        <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-          Audio Transcription Tool — runs entirely in your browser
-        </p>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — primary card */}
       <div
         role="button"
         tabIndex={0}
@@ -71,22 +115,16 @@ export function UploadZone({ onFile }: Props) {
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`
-          relative w-full max-w-md rounded-xl cursor-pointer outline-none
-          transition-all duration-200 active:scale-[0.98]
-          ${dragging ? 'glow-accent' : ''}
-        `}
+        className="relative z-10 w-full max-w-[460px] cursor-pointer outline-none transition-all duration-200 active:scale-[0.99]"
         style={{
           background: dragging
-            ? 'linear-gradient(180deg, rgba(45,212,191,0.06) 0%, rgba(45,212,191,0.02) 100%)'
-            : 'linear-gradient(180deg, rgba(14,14,18,0.9) 0%, rgba(10,10,13,0.85) 100%)',
-          border: dragging
-            ? '1px solid rgba(45,212,191,0.4)'
-            : '1px solid rgba(255,255,255,0.05)',
-          borderTopColor: dragging ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.09)',
+            ? 'linear-gradient(180deg, rgba(45,212,191,0.05) 0%, rgba(0,0,0,0.4) 100%)'
+            : 'linear-gradient(180deg, rgba(16,16,20,0.95) 0%, rgba(9,9,11,0.9) 100%)',
+          border: dragging ? '1px solid rgba(45,212,191,0.35)' : '1px solid rgba(255,255,255,0.05)',
+          borderTopColor: dragging ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.10)',
           boxShadow: dragging
-            ? '0 0 30px rgba(45,212,191,0.10), 0 1px 2px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)'
-            : '0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)',
+            ? '0 0 0 1px rgba(45,212,191,0.08), 0 0 40px rgba(45,212,191,0.08), 0 2px 4px rgba(0,0,0,0.6), 0 8px 32px rgba(0,0,0,0.4)'
+            : '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.6), 0 8px 32px rgba(0,0,0,0.35), 0 24px 64px rgba(0,0,0,0.2)',
         }}
       >
         <input
@@ -97,42 +135,67 @@ export function UploadZone({ onFile }: Props) {
           className="hidden"
         />
 
-        <div className="flex flex-col items-center gap-5 px-8 py-12">
+        {/* Top edge highlight */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{
+            background: dragging
+              ? 'linear-gradient(90deg, transparent 0%, rgba(45,212,191,0.5) 50%, transparent 100%)'
+              : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%)',
+          }}
+        />
+
+        <div className="flex flex-col items-center px-10 py-14">
+          {/* Upload icon container */}
           <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200"
+            className="mb-7 w-16 h-16 flex items-center justify-center transition-all duration-200"
             style={{
-              background: dragging ? 'rgba(45,212,191,0.12)' : 'rgba(0,0,0,0.35)',
-              border: dragging ? '1px solid rgba(45,212,191,0.25)' : '1px solid rgba(255,255,255,0.04)',
-              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6)',
+              background: dragging ? 'rgba(45,212,191,0.08)' : 'rgba(0,0,0,0.4)',
+              border: dragging ? '1px solid rgba(45,212,191,0.2)' : '1px solid rgba(255,255,255,0.04)',
+              borderTopColor: dragging ? 'rgba(45,212,191,0.3)' : 'rgba(255,255,255,0.07)',
+              boxShadow: dragging
+                ? 'inset 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(45,212,191,0.08)'
+                : 'inset 0 2px 8px rgba(0,0,0,0.6)',
             }}
           >
-            <svg
-              className="w-7 h-7 transition-colors duration-200"
-              fill="none"
-              stroke={dragging ? '#2dd4bf' : '#52525b'}
-              strokeWidth={1.5}
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-            </svg>
+            {dragging ? (
+              <svg className="w-7 h-7" fill="none" stroke="#2dd4bf" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
+            ) : (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24">
+                {/* Waveform-style icon */}
+                <rect x="3" y="9" width="2" height="6" rx="1" fill="rgba(45,212,191,0.3)" />
+                <rect x="7" y="5" width="2" height="14" rx="1" fill="rgba(45,212,191,0.5)" />
+                <rect x="11" y="3" width="2" height="18" rx="1" fill="#2dd4bf" />
+                <rect x="15" y="6" width="2" height="12" rx="1" fill="rgba(45,212,191,0.5)" />
+                <rect x="19" y="10" width="2" height="4" rx="1" fill="rgba(45,212,191,0.3)" />
+              </svg>
+            )}
           </div>
 
-          <div className="text-center">
-            <p className="text-[15px] font-semibold text-white mb-1">
-              {dragging ? 'Release to load' : 'Drop audio file here'}
-            </p>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>or click to browse</p>
-          </div>
+          {/* Text */}
+          <p
+            className="text-[16px] font-semibold mb-2 tracking-tight"
+            style={{ color: dragging ? '#2dd4bf' : 'var(--foreground)' }}
+          >
+            {dragging ? 'Release to load' : 'Drop audio file here'}
+          </p>
+          <p className="text-[13px] mb-8" style={{ color: 'var(--foreground-tertiary)' }}>
+            or <span style={{ color: 'var(--foreground-secondary)' }}>click to browse</span>
+          </p>
 
-          <div className="flex items-center gap-2">
-            {['mp3', 'wav', 'm4a', 'webm', 'ogg'].map((ext) => (
+          {/* Format chips */}
+          <div className="flex items-center gap-1.5">
+            {['MP3', 'WAV', 'M4A', 'WEBM', 'OGG'].map((ext) => (
               <span
                 key={ext}
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider"
+                className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(255,255,255,0.05)',
                   color: 'var(--foreground-tertiary)',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
                 }}
               >
                 {ext}
@@ -140,14 +203,21 @@ export function UploadZone({ onFile }: Props) {
             ))}
           </div>
         </div>
+
+        {/* Bottom edge — subtle separator line */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-px"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+        />
       </div>
 
+      {/* Error */}
       {error && (
         <div
-          className="mt-4 max-w-md w-full px-4 py-3 rounded-lg text-sm"
+          className="relative z-10 mt-3 max-w-[460px] w-full px-4 py-3 text-[12px]"
           style={{
-            background: 'rgba(244,63,94,0.06)',
-            border: '1px solid rgba(244,63,94,0.2)',
+            background: 'rgba(244,63,94,0.05)',
+            border: '1px solid rgba(244,63,94,0.18)',
             color: '#fb7185',
           }}
         >
@@ -155,25 +225,36 @@ export function UploadZone({ onFile }: Props) {
         </div>
       )}
 
-      {/* Feature badges */}
-      <div className="mt-8 flex gap-2 flex-wrap justify-center">
-        {['Whisper ASR', 'Speaker Labels', 'TXT / JSON / SRT / VTT', '100% Local'].map((label) => (
-          <span
-            key={label}
-            className="px-3 py-1 rounded-full text-xs font-medium"
+      {/* Feature grid */}
+      <div className="relative z-10 mt-10 w-full max-w-[460px] grid grid-cols-2 gap-2">
+        {[
+          { label: 'Whisper ASR', desc: 'State-of-the-art speech recognition' },
+          { label: 'Speaker Labels', desc: 'Multi-speaker diarization' },
+          { label: 'TXT / SRT / VTT / JSON', desc: 'Export in any format' },
+          { label: '100% Local', desc: 'No audio ever leaves your device' },
+        ].map((f) => (
+          <div
+            key={f.label}
+            className="px-3.5 py-3"
             style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              color: 'var(--foreground-tertiary)',
+              background: 'rgba(0,0,0,0.25)',
+              border: '1px solid rgba(255,255,255,0.04)',
+              borderTopColor: 'rgba(255,255,255,0.06)',
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4)',
             }}
           >
-            {label}
-          </span>
+            <p className="text-[11px] font-semibold text-white mb-0.5">{f.label}</p>
+            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--foreground-tertiary)' }}>{f.desc}</p>
+          </div>
         ))}
       </div>
 
-      <p className="mt-5 text-xs text-center max-w-sm" style={{ color: '#3f3f46' }}>
-        Model weights (~75–250 MB) download once and cache in the browser. No audio is ever uploaded.
+      {/* Privacy note */}
+      <p
+        className="relative z-10 mt-6 text-[11px] text-center max-w-[360px] leading-relaxed"
+        style={{ color: '#3f3f46' }}
+      >
+        Model weights (~75–250 MB) download once and cache locally. Zero server calls — everything runs in WebAssembly.
       </p>
     </div>
   )
@@ -194,11 +275,11 @@ export function FileInfoBar({ file, duration }: { file: File; duration: number |
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
       </svg>
       <span className="text-[13px] font-medium text-white truncate max-w-[160px] md:max-w-xs">{file.name}</span>
-      <span className="text-[11px] font-mono shrink-0" style={{ color: 'var(--foreground-tertiary)' }}>
+      <span className="text-[11px] font-mono shrink-0 tabular-nums" style={{ color: 'var(--foreground-tertiary)' }}>
         {formatFileSize(file.size)}
       </span>
       {duration !== null && (
-        <span className="text-[11px] font-mono shrink-0" style={{ color: 'var(--foreground-tertiary)' }}>
+        <span className="text-[11px] font-mono shrink-0 tabular-nums" style={{ color: 'var(--foreground-tertiary)' }}>
           {formatDur(duration)}
         </span>
       )}

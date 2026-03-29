@@ -8,11 +8,11 @@ import { ExportPanel } from './components/ExportPanel'
 import { AudioPlayer } from './components/AudioPlayer'
 import { AnalyticsPanel } from './components/AnalyticsPanel'
 
-// ── Default speakers ────────────────────────────────────────────────────────
+// ── Default speakers ─────────────────────────────────────────────────────────
 
 const DEFAULT_SPEAKERS: Speaker[] = [
-  { id: 's1', name: 'Speaker 1', color: '#a78bfa' },
-  { id: 's2', name: 'Speaker 2', color: '#34d399' },
+  { id: 's1', name: 'Speaker 1', color: '#2dd4bf' },
+  { id: 's2', name: 'Speaker 2', color: '#a78bfa' },
 ]
 
 let speakerCounter = 3
@@ -41,7 +41,11 @@ function makeSegments(chunks: WhisperChunk[], defaultSpeakerId: string): Segment
   })
 }
 
-// ── App ────────────────────────────────────────────────────────────────────
+// ── Tab types ─────────────────────────────────────────────────────────────────
+
+type Panel = 'transcript' | 'speakers' | 'analytics' | 'export'
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null)
@@ -58,11 +62,11 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null)
   const [manuallyAssignedIds, setManuallyAssignedIds] = useState<Set<string>>(new Set())
-  const [view, setView] = useState<'transcript' | 'analytics'>('transcript')
+  const [panel, setPanel] = useState<Panel>('transcript')
 
   const workerRef = useRef<Worker | null>(null)
 
-  // ── File upload ──────────────────────────────────────────────────────────
+  // ── File upload ───────────────────────────────────────────────────────────
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f)
@@ -71,8 +75,7 @@ export default function App() {
     setSelectedIds(new Set())
     setActiveSegmentId(null)
     setStatus('idle')
-
-    // Get duration for display
+    setPanel('transcript')
     try {
       const dur = await getAudioDuration(f)
       setDuration(dur)
@@ -81,7 +84,7 @@ export default function App() {
     }
   }, [])
 
-  // ── Transcription ────────────────────────────────────────────────────────
+  // ── Transcription ─────────────────────────────────────────────────────────
 
   const startTranscription = useCallback(async () => {
     if (!file) return
@@ -90,23 +93,18 @@ export default function App() {
     setModelProgress(null)
     setTranscribeProgress(0)
 
-    console.log('[ATT] ── Starting transcription ──────────────────────────')
-    console.log(`[ATT] File: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB, type: ${file.type})`)
-    console.log(`[ATT] Model size: ${modelSize}`)
+    console.log('[ATT] Starting transcription:', file.name, modelSize)
 
     try {
-      console.log('[ATT] Decoding audio to mono Float32 @ 16kHz…')
+      console.log('[ATT] Decoding audio to mono Float32 @ 16kHz...')
       const t0 = performance.now()
       const data = await decodeAudioFile(file)
-      console.log(`[ATT] Audio decoded in ${((performance.now() - t0) / 1000).toFixed(2)}s — ${data.length} samples (${(data.length / 16000).toFixed(1)}s)`)
+      console.log(`[ATT] Audio decoded in ${((performance.now() - t0) / 1000).toFixed(2)}s — ${data.length} samples`)
 
-      // Terminate previous worker
       if (workerRef.current) {
-        console.log('[ATT] Terminating previous worker')
         workerRef.current.terminate()
       }
 
-      console.log('[ATT] Spawning Web Worker…')
       const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
       workerRef.current = worker
 
@@ -119,10 +117,7 @@ export default function App() {
           setTranscribeProgress(msg.progress)
         } else if (msg.type === 'result') {
           const segs = makeSegments(msg.chunks, speakers[0].id)
-          console.log(`[ATT] Result received — ${msg.chunks.length} chunks → ${segs.length} segments`)
-          segs.forEach((s, i) =>
-            console.log(`[ATT]   seg ${i + 1}: [${s.start.toFixed(1)}→${s.end.toFixed(1)}s] ${s.silenceGapBefore ? '(silence gap) ' : ''}"${s.text.slice(0, 60)}${s.text.length > 60 ? '…' : ''}"`)
-          )
+          console.log(`[ATT] Result: ${msg.chunks.length} chunks → ${segs.length} segments`)
           setSegments(segs)
           setStatus('done')
         } else if (msg.type === 'error') {
@@ -133,26 +128,24 @@ export default function App() {
       }
 
       worker.onerror = (e) => {
-        console.error('[ATT] Uncaught worker error:', e.message, e)
+        console.error('[ATT] Uncaught worker error:', e.message)
         setError(e.message)
         setStatus('error')
       }
 
-      console.log('[ATT] Posting transcribe message to worker…')
       worker.postMessage({ type: 'transcribe', audioData: data, modelSize })
     } catch (err) {
-      console.error('[ATT] Error before worker:', err)
+      console.error('[ATT] Error:', err)
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
   }, [file, modelSize, speakers])
 
-  // Cleanup worker on unmount
   useEffect(() => {
     return () => workerRef.current?.terminate()
   }, [])
 
-  // ── Segment mutation ─────────────────────────────────────────────────────
+  // ── Segment mutation ──────────────────────────────────────────────────────
 
   const handleTextEdit = useCallback((id: string, text: string) => {
     setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, text } : s)))
@@ -186,36 +179,21 @@ export default function App() {
 
   const handleBulkAssign = useCallback((speakerId: string) => {
     if (selectedIds.size === 0) return
-    setSegments((prev) =>
-      prev.map((s) => (selectedIds.has(s.id) ? { ...s, speakerId } : s)),
-    )
+    setSegments((prev) => prev.map((s) => (selectedIds.has(s.id) ? { ...s, speakerId } : s)))
     setManuallyAssignedIds((prev) => new Set([...prev, ...selectedIds]))
   }, [selectedIds])
 
-  // ── Auto-assign & clear ──────────────────────────────────────────────────
-
   const handleAutoAssign = useCallback(() => {
     setSegments((prev) => {
-      // Build anchors: segments that have been manually labeled
-      const anchors = prev
-        .map((seg, idx) => ({ seg, idx }))
-        .filter(({ seg }) => manuallyAssignedIds.has(seg.id))
-
+      const anchors = prev.map((seg, idx) => ({ seg, idx })).filter(({ seg }) => manuallyAssignedIds.has(seg.id))
       if (anchors.length === 0) return prev
-
       return prev.map((seg, idx) => {
-        // Don't override manual labels
         if (manuallyAssignedIds.has(seg.id)) return seg
-
-        // Find nearest anchor by index — ties go to earlier anchor
         let nearest = anchors[0]
         let minDist = Math.abs(idx - anchors[0].idx)
         for (const anchor of anchors) {
           const dist = Math.abs(idx - anchor.idx)
-          if (dist < minDist) {
-            minDist = dist
-            nearest = anchor
-          }
+          if (dist < minDist) { minDist = dist; nearest = anchor }
         }
         return { ...seg, speakerId: nearest.seg.speakerId }
       })
@@ -229,16 +207,12 @@ export default function App() {
     setManuallyAssignedIds(new Set())
   }, [speakers])
 
-  // ── Speaker mutation ─────────────────────────────────────────────────────
+  // ── Speaker mutation ──────────────────────────────────────────────────────
 
   const handleAddSpeaker = useCallback(() => {
-    const colors = ['#f87171', '#60a5fa', '#fbbf24', '#f472b6', '#2dd4bf', '#a3e635', '#fb923c']
+    const colors = ['#f87171', '#60a5fa', '#fbbf24', '#f472b6', '#34d399', '#a3e635', '#fb923c']
     const color = colors[(speakerCounter - 1) % colors.length]
-    const newSpeaker: Speaker = {
-      id: makeId(),
-      name: `Speaker ${speakerCounter}`,
-      color,
-    }
+    const newSpeaker: Speaker = { id: makeId(), name: `Speaker ${speakerCounter}`, color }
     speakerCounter++
     setSpeakers((prev) => [...prev, newSpeaker])
   }, [])
@@ -254,25 +228,20 @@ export default function App() {
   const handleRemoveSpeaker = useCallback((id: string) => {
     setSpeakers((prev) => {
       const next = prev.filter((s) => s.id !== id)
-      // Reassign segments from removed speaker to first remaining
       const fallback = next[0]?.id
       if (fallback) {
-        setSegments((segs) =>
-          segs.map((s) => (s.speakerId === id ? { ...s, speakerId: fallback } : s)),
-        )
+        setSegments((segs) => segs.map((s) => (s.speakerId === id ? { ...s, speakerId: fallback } : s)))
       }
       return next
     })
   }, [])
-
-  // ── Segment count by speaker ─────────────────────────────────────────────
 
   const segmentCountBySpeaker: Record<string, number> = {}
   for (const seg of segments) {
     segmentCountBySpeaker[seg.speakerId] = (segmentCountBySpeaker[seg.speakerId] ?? 0) + 1
   }
 
-  // ── Play segment ─────────────────────────────────────────────────────────
+  // ── Audio playback ────────────────────────────────────────────────────────
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
 
@@ -284,13 +253,12 @@ export default function App() {
     setActiveSegmentId(seg.id)
   }, [])
 
-  // ── Reset ────────────────────────────────────────────────────────────────
+  // ── Reset ─────────────────────────────────────────────────────────────────
 
   const handleReset = () => {
     if (workerRef.current) workerRef.current.terminate()
     setFile(null)
     setDuration(null)
-
     setStatus('idle')
     setSegments([])
     setSelectedIds(new Set())
@@ -301,48 +269,77 @@ export default function App() {
     speakerCounter = 3
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render: upload screen ─────────────────────────────────────────────────
 
   if (!file) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="min-h-screen" style={{ background: 'var(--background)' }}>
         <UploadZone onFile={handleFile} />
       </div>
     )
   }
 
   const isProcessing = status === 'loading-model' || status === 'transcribing'
+  const hasContent = status === 'done' || segments.length > 0
+
+  // ── Render: main workspace ────────────────────────────────────────────────
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-white overflow-hidden">
-      {/* Top bar */}
-      <header className="shrink-0 flex items-center gap-4 px-4 py-2.5 border-b border-zinc-800 bg-zinc-900">
+    <div className="h-[100dvh] flex flex-col overflow-hidden" style={{ background: 'var(--background)' }}>
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <header
+        className="shrink-0 flex items-center gap-3 px-4 h-[52px]"
+        style={{
+          background: 'rgba(9,9,11,0.95)',
+          backdropFilter: 'blur(24px)',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+        }}
+      >
+        {/* Logo / back */}
         <button
           onClick={handleReset}
-          className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm"
+          className="flex items-center gap-2 transition-all active:scale-[0.97]"
           title="Upload new file"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          New
+          <div
+            className="w-6 h-6 flex items-center justify-center rounded"
+            style={{ background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.15)' }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="#2dd4bf" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            </svg>
+          </div>
+          <span className="font-display text-[13px] font-semibold hidden sm:block" style={{ color: 'var(--foreground-secondary)' }}>
+            ATT
+          </span>
         </button>
 
-        <div className="w-px h-4 bg-zinc-700" />
+        {/* Vertical divider */}
+        <div className="w-px h-4 shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }} />
 
-        {/* File name */}
-        <span className="text-sm text-zinc-300 font-medium truncate max-w-xs">{file.name}</span>
+        {/* File info */}
+        <FileInfoBar file={file} duration={duration} />
 
         <div className="flex-1" />
 
-        {/* Model selector */}
+        {/* Model selector — only when idle */}
         {status === 'idle' && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500">Model</span>
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>
+              Model
+            </span>
             <select
               value={modelSize}
               onChange={(e) => setModelSize(e.target.value as ModelSize)}
-              className="bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 text-sm text-zinc-200 outline-none focus:border-violet-500 transition-colors"
+              className="text-[12px] font-medium outline-none rounded px-2.5 py-1 transition-all"
+              style={{
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'var(--foreground-secondary)',
+              }}
             >
               <option value="tiny">Tiny (~75 MB)</option>
               <option value="base">Base (~150 MB)</option>
@@ -351,113 +348,247 @@ export default function App() {
           </div>
         )}
 
-        {/* Transcribe / progress */}
-        {status === 'idle' && (
-          <button
-            onClick={startTranscription}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-            </svg>
-            Transcribe
-          </button>
-        )}
-
+        {/* Progress indicator */}
         {isProcessing && (
           <div className="flex items-center gap-3">
-            <div className="text-xs text-zinc-400">
-              {status === 'loading-model' ? (
-                modelProgress
-                  ? `Downloading ${modelProgress.file.split('/').pop()} — ${Math.round(modelProgress.progress)}%`
-                  : 'Loading model…'
-              ) : (
-                `Transcribing — ${Math.round(transcribeProgress)}%`
-              )}
+            <div className="hidden sm:block text-[11px] font-medium" style={{ color: 'var(--foreground-secondary)' }}>
+              {status === 'loading-model'
+                ? modelProgress
+                  ? `${modelProgress.file.split('/').pop()} — ${Math.round(modelProgress.progress)}%`
+                  : 'Loading model...'
+                : `Transcribing — ${Math.round(transcribeProgress)}%`}
             </div>
-            <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+            <div className="w-24 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
               <div
-                className="h-full bg-violet-500 rounded-full transition-[width] duration-300"
+                className="h-full rounded-full transition-[width] duration-300"
                 style={{
                   width: status === 'loading-model'
                     ? `${modelProgress?.progress ?? 0}%`
                     : `${transcribeProgress}%`,
+                  background: '#2dd4bf',
                 }}
               />
             </div>
           </div>
         )}
 
-        {status === 'done' && segments.length > 0 && (
-          <>
-            {/* View toggle */}
-            <div className="flex rounded-lg overflow-hidden border border-zinc-700 text-xs">
-              {(['transcript', 'analytics'] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={`px-3 py-1.5 capitalize transition-colors ${view === v ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  {v === 'analytics' ? '📊 Analytics' : '📝 Transcript'}
-                </button>
-              ))}
-            </div>
-            <ExportPanel segments={segments} speakers={speakers} fileName={file.name} />
-          </>
+        {/* Transcribe button */}
+        {status === 'idle' && (
+          <button
+            onClick={startTranscription}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-bold transition-all active:scale-[0.97]"
+            style={{
+              background: 'linear-gradient(180deg, #34d9c4 0%, #1aab98 100%)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset, 0 4px 16px rgba(45,212,191,0.2)',
+              color: '#09090b',
+            }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+            </svg>
+            Transcribe
+          </button>
         )}
 
+        {/* Panel tabs — desktop, done state */}
+        {hasContent && (
+          <div
+            className="hidden md:flex rounded overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            {([
+              { id: 'transcript', label: 'Transcript' },
+              { id: 'analytics', label: 'Analytics' },
+            ] as { id: Panel; label: string }[]).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setPanel(tab.id)}
+                className="px-3 py-1.5 text-[11px] font-semibold transition-all"
+                style={{
+                  background: panel === tab.id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  color: panel === tab.id ? 'var(--foreground)' : 'var(--foreground-tertiary)',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Export — desktop */}
+        {hasContent && (
+          <div className="hidden md:block">
+            <ExportPanel segments={segments} speakers={speakers} fileName={file.name} />
+          </div>
+        )}
+
+        {/* Retry */}
         {status === 'error' && (
           <button
             onClick={startTranscription}
-            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm transition-colors"
+            className="px-3 py-1.5 rounded text-[12px] font-bold transition-all active:scale-[0.97]"
+            style={{
+              background: 'rgba(244,63,94,0.1)',
+              border: '1px solid rgba(244,63,94,0.2)',
+              color: '#fb7185',
+            }}
           >
             Retry
           </button>
         )}
       </header>
 
-      {/* File info bar */}
-      <FileInfoBar file={file} duration={duration} />
-
-      {/* Error banner */}
+      {/* ── Error banner ─────────────────────────────────────────────────────── */}
       {error && (
-        <div className="shrink-0 px-4 py-2.5 bg-red-500/10 border-b border-red-500/30 text-red-400 text-sm flex items-start gap-2">
-          <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <div
+          className="shrink-0 px-4 py-2.5 flex items-start gap-2 text-[12px]"
+          style={{
+            background: 'rgba(244,63,94,0.06)',
+            borderBottom: '1px solid rgba(244,63,94,0.15)',
+            color: '#fb7185',
+          }}
+        >
+          <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
           </svg>
           <span>{error}</span>
         </div>
       )}
 
-      {/* Main content */}
+      {/* ── Content area ─────────────────────────────────────────────────────── */}
+
+      {/* Idle: ready to transcribe */}
       {status === 'idle' && segments.length === 0 && (
-        <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-          <div className="text-center space-y-3">
-            <svg className="w-12 h-12 mx-auto text-zinc-700" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-            </svg>
-            <p>Click <strong className="text-zinc-400">Transcribe</strong> to start.</p>
-            <p className="text-zinc-600 text-xs">The model runs entirely in your browser — nothing is uploaded.</p>
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center space-y-4 max-w-xs">
+            <div
+              className="w-14 h-14 mx-auto flex items-center justify-center rounded"
+              style={{
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.04)',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6)',
+              }}
+            >
+              <svg className="w-7 h-7" fill="none" stroke="#3f3f46" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-white mb-1">
+                Ready to transcribe
+              </p>
+              <p className="text-[12px]" style={{ color: 'var(--foreground-tertiary)' }}>
+                Click Transcribe to start. Model runs entirely in your browser.
+              </p>
+            </div>
+            {/* Mobile model selector */}
+            <div className="sm:hidden flex items-center gap-2 justify-center">
+              <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>Model</span>
+              <select
+                value={modelSize}
+                onChange={(e) => setModelSize(e.target.value as ModelSize)}
+                className="text-[12px] outline-none rounded px-2.5 py-1"
+                style={{
+                  background: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--foreground-secondary)',
+                }}
+              >
+                <option value="tiny">Tiny (~75 MB)</option>
+                <option value="base">Base (~150 MB)</option>
+                <option value="small">Small (~250 MB)</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Processing */}
       {isProcessing && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-zinc-400 text-sm">
-              {status === 'loading-model' ? 'Downloading model weights…' : 'Transcribing audio…'}
-            </p>
-            <p className="text-zinc-600 text-xs">This may take a few minutes for longer recordings.</p>
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center space-y-5 max-w-xs">
+            <div className="relative mx-auto w-12 h-12">
+              <div
+                className="absolute inset-0 rounded-full animate-spin-smooth"
+                style={{ border: '2px solid rgba(255,255,255,0.06)', borderTopColor: '#2dd4bf' }}
+              />
+              <div
+                className="absolute inset-[5px] flex items-center justify-center rounded-full"
+                style={{ background: 'rgba(45,212,191,0.06)' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="#2dd4bf" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-white mb-1">
+                {status === 'loading-model' ? 'Loading model' : 'Transcribing'}
+              </p>
+              <p className="text-[12px]" style={{ color: 'var(--foreground-tertiary)' }}>
+                {status === 'loading-model'
+                  ? modelProgress
+                    ? `${modelProgress.file.split('/').pop()} — ${Math.round(modelProgress.progress)}%`
+                    : 'Downloading model weights...'
+                  : `${Math.round(transcribeProgress)}% — this may take a few minutes`}
+              </p>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div
+                className="h-full rounded-full transition-[width] duration-300"
+                style={{
+                  width: status === 'loading-model'
+                    ? `${modelProgress?.progress ?? 0}%`
+                    : `${transcribeProgress}%`,
+                  background: '#2dd4bf',
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
 
-      {(status === 'done' || segments.length > 0) && (
-        <div className="flex-1 flex min-h-0">
-          {view === 'transcript' ? (
-            <>
+      {/* Main workspace — desktop: transcript + speakers side by side */}
+      {hasContent && (
+        <>
+          {/* Desktop layout */}
+          <div className="hidden md:flex flex-1 min-h-0">
+            {panel === 'transcript' ? (
+              <>
+                <TranscriptEditor
+                  segments={segments}
+                  speakers={speakers}
+                  selectedIds={selectedIds}
+                  activeSegmentId={activeSegmentId}
+                  manuallyAssignedIds={manuallyAssignedIds}
+                  onSelect={handleSelect}
+                  onSelectAll={handleSelectAll}
+                  onClearSelection={handleClearSelection}
+                  onTextEdit={handleTextEdit}
+                  onSpeakerAssign={handleSpeakerAssign}
+                  onBulkAssign={handleBulkAssign}
+                  onAutoAssign={handleAutoAssign}
+                  onClearAssignments={handleClearAssignments}
+                  onPlay={handlePlaySegment}
+                />
+                <SpeakerPanel
+                  speakers={speakers}
+                  onAdd={handleAddSpeaker}
+                  onRename={handleRenameSpeaker}
+                  onColorChange={handleColorChange}
+                  onRemove={handleRemoveSpeaker}
+                  segmentCountBySpeaker={segmentCountBySpeaker}
+                />
+              </>
+            ) : (
+              <AnalyticsPanel segments={segments} speakers={speakers} />
+            )}
+          </div>
+
+          {/* Mobile layout — single panel based on active tab */}
+          <div className="md:hidden flex-1 min-h-0 flex flex-col">
+            {panel === 'transcript' && (
               <TranscriptEditor
                 segments={segments}
                 speakers={speakers}
@@ -474,6 +605,8 @@ export default function App() {
                 onClearAssignments={handleClearAssignments}
                 onPlay={handlePlaySegment}
               />
+            )}
+            {panel === 'speakers' && (
               <SpeakerPanel
                 speakers={speakers}
                 onAdd={handleAddSpeaker}
@@ -482,15 +615,19 @@ export default function App() {
                 onRemove={handleRemoveSpeaker}
                 segmentCountBySpeaker={segmentCountBySpeaker}
               />
-            </>
-          ) : (
-            <AnalyticsPanel segments={segments} speakers={speakers} />
-          )}
-        </div>
+            )}
+            {panel === 'analytics' && (
+              <AnalyticsPanel segments={segments} speakers={speakers} />
+            )}
+            {panel === 'export' && (
+              <ExportPanel segments={segments} speakers={speakers} fileName={file.name} fullPage />
+            )}
+          </div>
+        </>
       )}
 
-      {/* Audio player */}
-      {file && (status === 'done' || segments.length > 0) && (
+      {/* ── Audio player ───────────────────────────────────────────────────── */}
+      {hasContent && (
         <AudioPlayer
           file={file}
           segments={segments}
@@ -499,19 +636,79 @@ export default function App() {
         />
       )}
 
-      {/* Hidden audio element ref bridge */}
+      {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
+      {hasContent && (
+        <nav
+          className="md:hidden shrink-0 grid grid-cols-4 pb-[env(safe-area-inset-bottom)]"
+          style={{
+            background: 'rgba(9,9,11,0.95)',
+            backdropFilter: 'blur(16px)',
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+          }}
+        >
+          {([
+            { id: 'transcript', label: 'Transcript', icon: <TranscriptIcon /> },
+            { id: 'speakers', label: 'Speakers', icon: <SpeakersIcon /> },
+            { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
+            { id: 'export', label: 'Export', icon: <ExportIcon /> },
+          ] as { id: Panel; label: string; icon: React.ReactNode }[]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setPanel(tab.id)}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 transition-all active:scale-[0.95]"
+              style={{ color: panel === tab.id ? '#2dd4bf' : 'var(--foreground-tertiary)' }}
+            >
+              {tab.icon}
+              <span className="text-[9px] uppercase tracking-wider font-semibold">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {/* Audio bridge */}
       <AudioElementBridge onReady={(el) => { audioElementRef.current = el }} />
     </div>
   )
 }
 
-// A hidden component that exposes the audio element from AudioPlayer to App
-// We use a simpler approach: AudioPlayer renders its own <audio> and we
-// communicate play-segment via a ref passed down. Instead, we wire it via
-// a custom event from the AudioPlayer component.
+// ── Mobile nav icons ──────────────────────────────────────────────────────────
+
+function TranscriptIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+    </svg>
+  )
+}
+
+function SpeakersIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+    </svg>
+  )
+}
+
+function AnalyticsIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+    </svg>
+  )
+}
+
+function ExportIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  )
+}
+
+// ── Audio element bridge ──────────────────────────────────────────────────────
+
 function AudioElementBridge({ onReady }: { onReady: (el: HTMLAudioElement) => void }) {
   useEffect(() => {
-    // Find the audio element rendered by AudioPlayer
     const tryFind = () => {
       const audio = document.querySelector('audio') as HTMLAudioElement | null
       if (audio) onReady(audio)
@@ -520,6 +717,5 @@ function AudioElementBridge({ onReady }: { onReady: (el: HTMLAudioElement) => vo
     const timer = setInterval(tryFind, 200)
     return () => clearInterval(timer)
   }, [onReady])
-
   return null
 }
