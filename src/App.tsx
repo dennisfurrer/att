@@ -49,11 +49,11 @@ function makeSegments(
   if (diarization && diarization.length > 0) {
     // Use pyannote diarization results — match each segment to the speaker
     // who has the most overlap with that segment's time range
-    console.log(`[ATT] Mapping ${segments.length} segments to ${diarization.length} diarization spans`)
+    console.log(`[transcript.work] Mapping ${segments.length} segments to ${diarization.length} diarization spans`)
 
     // Collect unique speaker indices from diarization
     const uniqueDiarSpeakers = [...new Set(diarization.map((d) => d.speakerIdx))].sort()
-    console.log(`[ATT] Diarization detected ${uniqueDiarSpeakers.length} speakers`)
+    console.log(`[transcript.work] Diarization detected ${uniqueDiarSpeakers.length} speakers`)
 
     for (const seg of segments) {
       // Find diarization spans that overlap with this segment
@@ -146,13 +146,13 @@ export default function App() {
     setDiarizeDetail(null)
     setProcessStartTime(Date.now())
 
-    console.log('[ATT] Starting transcription:', file.name, modelSize)
+    console.log('[transcript.work] Starting transcription:', file.name, modelSize)
 
     try {
-      console.log('[ATT] Decoding audio to mono Float32 @ 16kHz...')
+      console.log('[transcript.work] Decoding audio to mono Float32 @ 16kHz...')
       const t0 = performance.now()
       const data = await decodeAudioFile(file)
-      console.log(`[ATT] Audio decoded in ${((performance.now() - t0) / 1000).toFixed(2)}s — ${data.length} samples`)
+      console.log(`[transcript.work] Audio decoded in ${((performance.now() - t0) / 1000).toFixed(2)}s — ${data.length} samples`)
 
       if (workerRef.current) {
         workerRef.current.terminate()
@@ -165,43 +165,43 @@ export default function App() {
         const msg = e.data
         if (msg.type === 'model-progress') {
           const fname = msg.file.split('/').pop() ?? msg.file
-          console.log(`[ATT] Model download [${msg.stage}]: ${fname} — ${Math.round(msg.progress)}%`)
+          console.log(`[transcript.work] Model download [${msg.stage}]: ${fname} — ${Math.round(msg.progress)}%`)
           if (msg.stage === 'diarization') {
             setStatus('diarizing')
           }
           setModelProgress({ file: msg.file, progress: msg.progress, loaded: msg.loaded, total: msg.total, stage: msg.stage })
         } else if (msg.type === 'transcription-progress') {
-          console.log(`[ATT] Transcription progress: ${Math.round(msg.progress)}%`)
+          console.log(`[transcript.work] Transcription progress: ${Math.round(msg.progress)}%`)
           setStatus('transcribing')
           setTranscribeProgress(msg.progress)
         } else if (msg.type === 'diarization-progress') {
-          console.log(`[ATT] Diarization: ${Math.round(msg.progress)}% — ${msg.detail ?? ''}`)
+          console.log(`[transcript.work] Diarization: ${Math.round(msg.progress)}% — ${msg.detail ?? ''}`)
           setStatus('diarizing')
           setDiarizeProgress(msg.progress)
           setDiarizeDetail(msg.detail ?? null)
         } else if (msg.type === 'result') {
           const speakerIds = speakers.map((s) => s.id)
           const hasDiar = !!(msg.diarization && msg.diarization.length > 0)
-          console.log(`[ATT] Result: ${msg.chunks.length} chunks, diarization: ${hasDiar ? `${msg.diarization!.length} spans` : 'none (fallback)'}`)
+          console.log(`[transcript.work] Result: ${msg.chunks.length} chunks, diarization: ${hasDiar ? `${msg.diarization!.length} spans` : 'none (fallback)'}`)
           const segs = makeSegments(msg.chunks, speakerIds, msg.diarization)
           setSegments(segs)
           setStatus('done')
         } else if (msg.type === 'error') {
-          console.error('[ATT] Worker error:', msg.message)
+          console.error('[transcript.work] Worker error:', msg.message)
           setError(msg.message)
           setStatus('error')
         }
       }
 
       worker.onerror = (e) => {
-        console.error('[ATT] Uncaught worker error:', e.message)
+        console.error('[transcript.work] Uncaught worker error:', e.message)
         setError(e.message)
         setStatus('error')
       }
 
       worker.postMessage({ type: 'transcribe', audioData: data, modelSize })
     } catch (err) {
-      console.error('[ATT] Error:', err)
+      console.error('[transcript.work] Error:', err)
       setError(err instanceof Error ? err.message : String(err))
       setStatus('error')
     }
@@ -407,7 +407,7 @@ export default function App() {
           title="Upload new file"
         >
           <span className="font-display text-[13px] font-semibold" style={{ color: 'var(--foreground-secondary)' }}>
-            ATT
+            transcript.work
           </span>
         </button>
 

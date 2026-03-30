@@ -104,7 +104,7 @@ let diarizationModel: any = null
 let diarizationProcessor: any = null
 let diarizationLoaded = false
 
-const log = (...args: unknown[]) => console.log('[ATT worker]', ...args)
+const log = (...args: unknown[]) => console.log('[transcript.work worker]', ...args)
 
 // ── Diarization ─────────────────────────────────────────────────────────────
 
@@ -488,7 +488,7 @@ self.onmessage = async (event: MessageEvent<WorkerInMessage>) => {
       }
       self.postMessage(out)
     } catch (err) {
-      console.error('[ATT worker] Error:', err)
+      console.error('[transcript.work worker] Error:', err)
       const out: WorkerOutMessage = {
         type: 'error',
         message: err instanceof Error ? err.message : String(err),

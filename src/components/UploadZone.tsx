@@ -67,10 +67,10 @@ export function UploadZone({ onFile }: Props) {
           className="font-display text-[22px] font-semibold tracking-tight leading-none mb-1.5"
           style={{ color: 'var(--foreground)' }}
         >
-          ATT
+          transcript.work
         </h1>
         <p className="text-[10px] uppercase tracking-[0.18em] font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>
-          Audio Transcription Tool
+          Audio Transcription
         </p>
       </div>
 

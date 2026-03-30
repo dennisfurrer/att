@@ -1,7 +1,7 @@
 {
-  "name": "att",
+  "name": "transcript-work",
   "version": "1.0.0",
-  "description": "Audio transcription tool with speaker diarization",
+  "description": "transcript.work — Audio transcription with speaker diarization",
   "type": "module",
   "scripts": {
     "dev": "vite",
