@@ -63,46 +63,15 @@ export function UploadZone({ onFile }: Props) {
 
       {/* Brand mark */}
       <div className="relative z-10 mb-12 text-center">
-        <div className="flex items-center justify-center gap-3 mb-3">
-          {/* Icon — recessed inset well */}
-          <div
-            className="w-11 h-11 flex items-center justify-center"
-            style={{
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.05)',
-              borderTopColor: 'rgba(255,255,255,0.08)',
-              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.03)',
-            }}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
-                stroke="#2dd4bf"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M9 22h6"
-                stroke="#2dd4bf"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div>
-            <h1
-              className="font-display text-[22px] font-semibold tracking-tight leading-none"
-              style={{ color: 'var(--foreground)' }}
-            >
-              ATT
-            </h1>
-            <p className="text-[10px] uppercase tracking-[0.18em] font-semibold mt-0.5" style={{ color: 'var(--foreground-tertiary)' }}>
-              Audio Transcription Tool
-            </p>
-          </div>
-        </div>
+        <h1
+          className="font-display text-[22px] font-semibold tracking-tight leading-none mb-1.5"
+          style={{ color: 'var(--foreground)' }}
+        >
+          ATT
+        </h1>
+        <p className="text-[10px] uppercase tracking-[0.18em] font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>
+          Audio Transcription Tool
+        </p>
       </div>
 
       {/* Drop zone — primary card */}

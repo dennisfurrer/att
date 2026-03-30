@@ -4,6 +4,7 @@ export type TranscriptionStatus =
   | 'idle'
   | 'loading-model'
   | 'transcribing'
+  | 'diarizing'
   | 'done'
   | 'error'
 
@@ -25,10 +26,18 @@ export type Segment = {
 export type WorkerInMessage =
   | { type: 'transcribe'; audioData: Float32Array; modelSize: ModelSize }
 
+export type DiarizationSegment = {
+  start: number
+  end: number
+  speakerIdx: number
+  confidence: number
+}
+
 export type WorkerOutMessage =
-  | { type: 'model-progress'; progress: number; file: string }
+  | { type: 'model-progress'; progress: number; file: string; loaded?: number; total?: number; stage: 'whisper' | 'diarization' }
   | { type: 'transcription-progress'; progress: number }
-  | { type: 'result'; chunks: WhisperChunk[] }
+  | { type: 'diarization-progress'; progress: number; detail?: string }
+  | { type: 'result'; chunks: WhisperChunk[]; diarization?: DiarizationSegment[] }
   | { type: 'error'; message: string }
 
 export type WhisperChunk = {
