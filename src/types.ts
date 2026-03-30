@@ -1,4 +1,4 @@
-export type ModelSize = 'tiny' | 'base' | 'small'
+export type ModelSize = 'tiny' | 'base' | 'small' | 'distil-small' | 'distil-large'
 
 export type TranscriptionStatus =
   | 'idle'

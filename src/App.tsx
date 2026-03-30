@@ -111,13 +111,16 @@ export default function App() {
       worker.onmessage = (e: MessageEvent<WorkerOutMessage>) => {
         const msg = e.data
         if (msg.type === 'model-progress') {
+          const fname = msg.file.split('/').pop() ?? msg.file
+          console.log(`[ATT] Model download: ${fname} — ${Math.round(msg.progress)}%`)
           setModelProgress({ file: msg.file, progress: msg.progress })
         } else if (msg.type === 'transcription-progress') {
+          console.log(`[ATT] Transcription progress: ${Math.round(msg.progress)}%`)
           setStatus('transcribing')
           setTranscribeProgress(msg.progress)
         } else if (msg.type === 'result') {
+          console.log(`[ATT] Result: ${msg.chunks.length} chunks → ${makeSegments(msg.chunks, speakers[0].id).length} segments`)
           const segs = makeSegments(msg.chunks, speakers[0].id)
-          console.log(`[ATT] Result: ${msg.chunks.length} chunks → ${segs.length} segments`)
           setSegments(segs)
           setStatus('done')
         } else if (msg.type === 'error') {
@@ -341,9 +344,15 @@ export default function App() {
                 color: 'var(--foreground-secondary)',
               }}
             >
-              <option value="tiny">Tiny (~75 MB)</option>
-              <option value="base">Base (~150 MB)</option>
-              <option value="small">Small (~250 MB)</option>
+              <optgroup label="Whisper (multilingual)">
+                <option value="tiny">Tiny (~75 MB)</option>
+                <option value="base">Base (~150 MB)</option>
+                <option value="small">Small (~250 MB)</option>
+              </optgroup>
+              <optgroup label="Distil-Whisper (English, faster)">
+                <option value="distil-small">Distil Small (~170 MB)</option>
+                <option value="distil-large">Distil Large v3.5 (~530 MB)</option>
+              </optgroup>
             </select>
           </div>
         )}
@@ -459,46 +468,85 @@ export default function App() {
 
       {/* Idle: ready to transcribe */}
       {status === 'idle' && segments.length === 0 && (
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center space-y-4 max-w-xs">
-            <div
-              className="w-14 h-14 mx-auto flex items-center justify-center rounded"
-              style={{
-                background: 'rgba(0,0,0,0.35)',
-                border: '1px solid rgba(255,255,255,0.04)',
-                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6)',
-              }}
-            >
-              <svg className="w-7 h-7" fill="none" stroke="#3f3f46" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[14px] font-semibold text-white mb-1">
-                Ready to transcribe
-              </p>
-              <p className="text-[12px]" style={{ color: 'var(--foreground-tertiary)' }}>
-                Click Transcribe to start. Model runs entirely in your browser.
-              </p>
-            </div>
-            {/* Mobile model selector */}
-            <div className="sm:hidden flex items-center gap-2 justify-center">
-              <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--foreground-tertiary)' }}>Model</span>
-              <select
-                value={modelSize}
-                onChange={(e) => setModelSize(e.target.value as ModelSize)}
-                className="text-[12px] outline-none rounded px-2.5 py-1"
+        <div className="flex-1 flex items-center justify-center px-4 py-8">
+          <div className="w-full max-w-sm space-y-3">
+
+            {/* Model selection cards */}
+            <p className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-4 text-center" style={{ color: 'var(--foreground-tertiary)' }}>
+              Select model
+            </p>
+            {([
+              { value: 'tiny', label: 'Tiny', size: '~75 MB', desc: 'Fastest — good for clear audio', group: 'whisper' },
+              { value: 'base', label: 'Base', size: '~150 MB', desc: 'Balanced speed and accuracy', group: 'whisper' },
+              { value: 'small', label: 'Small', size: '~250 MB', desc: 'Most accurate — slower', group: 'whisper' },
+              { value: 'distil-small', label: 'Distil Small', size: '~170 MB', desc: 'Fast English — 2-3x faster', group: 'distil' },
+              { value: 'distil-large', label: 'Distil Large', size: '~530 MB', desc: 'Best English quality — fast', group: 'distil' },
+            ] as { value: ModelSize; label: string; size: string; desc: string; group: string }[]).map((m) => (
+              <button
+                key={m.value}
+                onClick={() => setModelSize(m.value)}
+                className="w-full flex items-center gap-4 px-4 py-3.5 text-left transition-all duration-150 active:scale-[0.99]"
                 style={{
-                  background: 'rgba(0,0,0,0.35)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  color: 'var(--foreground-secondary)',
+                  background: modelSize === m.value
+                    ? 'linear-gradient(180deg, rgba(45,212,191,0.07) 0%, rgba(45,212,191,0.03) 100%)'
+                    : 'rgba(0,0,0,0.25)',
+                  border: modelSize === m.value
+                    ? '1px solid rgba(45,212,191,0.25)'
+                    : '1px solid rgba(255,255,255,0.05)',
+                  borderTopColor: modelSize === m.value
+                    ? 'rgba(45,212,191,0.35)'
+                    : 'rgba(255,255,255,0.08)',
+                  boxShadow: modelSize === m.value
+                    ? 'inset 0 1px 3px rgba(0,0,0,0.4), 0 0 16px rgba(45,212,191,0.04)'
+                    : 'inset 0 1px 3px rgba(0,0,0,0.5)',
                 }}
               >
-                <option value="tiny">Tiny (~75 MB)</option>
-                <option value="base">Base (~150 MB)</option>
-                <option value="small">Small (~250 MB)</option>
-              </select>
-            </div>
+                {/* Selection indicator */}
+                <div
+                  className="shrink-0 w-3.5 h-3.5 flex items-center justify-center"
+                  style={{
+                    background: modelSize === m.value ? '#2dd4bf' : 'rgba(0,0,0,0.4)',
+                    border: modelSize === m.value ? '1px solid #2dd4bf' : '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: modelSize === m.value ? '0 0 8px rgba(45,212,191,0.3)' : 'none',
+                  }}
+                >
+                  {modelSize === m.value && (
+                    <div className="w-1.5 h-1.5" style={{ background: '#09090b' }} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className="text-[13px] font-semibold"
+                      style={{ color: modelSize === m.value ? '#2dd4bf' : 'var(--foreground)' }}
+                    >
+                      {m.label}
+                    </span>
+                    <span className="font-mono text-[10px] tabular-nums" style={{ color: 'var(--foreground-tertiary)' }}>
+                      {m.size}
+                    </span>
+                  </div>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--foreground-tertiary)' }}>{m.desc}</p>
+                </div>
+              </button>
+            ))}
+
+            {/* Transcribe CTA */}
+            <button
+              onClick={startTranscription}
+              className="w-full mt-2 py-3 text-[13px] font-bold tracking-wide transition-all active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(180deg, #34d9c4 0%, #1aab98 100%)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset, 0 4px 20px rgba(45,212,191,0.2), 0 1px 3px rgba(0,0,0,0.4)',
+                color: '#09090b',
+              }}
+            >
+              Start Transcription
+            </button>
+
+            <p className="text-[10px] text-center pt-1" style={{ color: '#3f3f46' }}>
+              Runs 100% in-browser. Cached after first download.
+            </p>
           </div>
         </div>
       )}
